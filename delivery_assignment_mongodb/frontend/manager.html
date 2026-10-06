@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<title>Manager Dashboard — Delivery Assignment System</title></head>
+<body>
+<div class="toast-host" id="toastHost"></div>
+<div id="navHost"></div>
+<div class="container page" id="mainApp" style="display:none;">
+  <div class="row row-cols-2 row-cols-md-3 row-cols-xl-6 g-3 mb-3">
+    <div class="col"><div class="card stat-card h-100"><div class="card-body"><div class="stat-label">Total Drivers</div><div class="stat-value" id="tDrivers">–</div><div class="stat-note">Project size: 20</div></div></div></div>
+    <div class="col"><div class="card stat-card h-100"><div class="card-body"><div class="stat-label">Total Customers</div><div class="stat-value" id="tCustomers">–</div><div class="stat-note">Project size: 500</div></div></div></div>
+    <div class="col"><div class="card stat-card h-100"><div class="card-body"><div class="stat-label">Restaurants</div><div class="stat-value" id="tRest">–</div><div class="stat-note">Single starting point</div></div></div></div>
+    <div class="col"><div class="card stat-card h-100"><div class="card-body"><div class="stat-label">Available drivers</div><div class="stat-value" id="tAvail">–</div><div class="stat-note"></div></div></div></div>
+    <div class="col"><div class="card stat-card h-100"><div class="card-body"><div class="stat-label">Busy drivers</div><div class="stat-value" id="tBusy">–</div><div class="stat-note"></div></div></div></div>
+    <div class="col"><div class="card stat-card h-100"><div class="card-body"><div class="stat-label">Total orders</div><div class="stat-value" id="tOrders">–</div><div class="stat-note"></div></div></div></div>
+  </div>
+  <div class="row row-cols-2 row-cols-md-4 g-3 mb-3">
+    <div class="col"><div class="card stat-card h-100"><div class="card-body"><div class="stat-label">Pending / waiting</div><div class="stat-value" id="tPending">–</div><div class="stat-note">Waiting queue</div></div></div></div>
+    <div class="col"><div class="card stat-card h-100"><div class="card-body"><div class="stat-label">Assigned</div><div class="stat-value" id="tAssigned">–</div><div class="stat-note">Out for delivery</div></div></div></div>
+    <div class="col"><div class="card stat-card h-100"><div class="card-body"><div class="stat-label">Delivered</div><div class="stat-value" id="tDelivered">–</div><div class="stat-note"></div></div></div></div>
+    <div class="col"><div class="card stat-card h-100"><div class="card-body"><div class="stat-label">Areas waiting</div><div class="stat-value" id="tAreas">–</div><div class="stat-note">Distinct road/areas queued</div></div></div></div>
+  </div>
+  <div class="card mb-3"><div class="card-body d-flex flex-wrap align-items-center gap-2">
+    <button class="btn btn-navy" id="refreshBtn">Refresh</button>
+    <button class="btn btn-amber" id="runAssignBtn">Run assignment now</button>
+    <span class="text-secondary small">Assignment also runs automatically whenever an order is placed or a delivery completes.</span>
+    <span class="ms-auto small text-secondary" id="restInfo"></span>
+  </div></div>
+  <div class="alert alert-info d-none" id="assignInfo"></div>
+  <div class="row g-3">
+    <div class="col-xl-5"><div class="card h-100"><div class="card-header">Drivers — status &amp; assignments</div><div class="card-body">
+      <div class="table-responsive table-scroll"><table class="table table-sm table-hover align-middle mb-0">
+        <thead><tr><th>Driver</th><th>Status</th><th>Orders</th><th>Road / Area</th></tr></thead><tbody id="driversBody"></tbody></table></div></div></div></div>
+    <div class="col-xl-7"><div class="card h-100"><div class="card-header">Orders</div><div class="card-body">
+      <div class="table-responsive table-scroll"><table class="table table-sm table-hover align-middle mb-0">
+        <thead><tr><th>#</th><th>Customer</th><th>Road / Area</th><th>Status</th><th>Driver</th></tr></thead><tbody id="ordersBody"></tbody></table></div></div></div></div>
+  </div>
+  <div class="modal fade" id="assignModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Run assignment</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">Assign waiting orders to available drivers now? (Same road/area orders go to one driver; busy drivers are skipped.)</div>
+    <div class="modal-footer"><button class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-amber" id="assignConfirm">Run assignment</button></div>
+  </div></div></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="auth.js"></script>
+<script src="ui.js"></script>
+<script>
+document.getElementById("navHost").innerHTML = UI.navbar("🧭 Manager Dashboard");
+let ORDERS = [], DRIVERS = [], SUMMARY = null, REST = null;
+const set = (id, v) => document.getElementById(id).textContent = v;
+function render() {
+  const cnt = s => ORDERS.filter(o => o.status === s).length;
+  const avail = DRIVERS.filter(d => d.status === "available").length, busy = DRIVERS.filter(d => d.status === "busy").length;
+  set("tDrivers", SUMMARY ? SUMMARY.total_drivers : DRIVERS.length);
+  set("tCustomers", SUMMARY ? SUMMARY.total_customers : "n/a");
+  set("tRest", SUMMARY ? SUMMARY.total_restaurants : (REST && REST.id ? 1 : 0));
+  set("tAvail", avail); set("tBusy", busy); set("tOrders", ORDERS.length);
+  set("tPending", cnt("pending")); set("tAssigned", cnt("assigned")); set("tDelivered", cnt("delivered"));
+  set("tAreas", new Set(ORDERS.filter(o => o.status === "pending").map(o => o.road_area)).size);
+  set("restInfo", REST && REST.name ? `🏪 ${REST.name} — ${REST.address}` : "");
+  const db = document.getElementById("driversBody"); db.innerHTML = "";
+  for (const d of DRIVERS) {
+    const mine = ORDERS.filter(o => o.driver_name === d.username && o.status === "assigned");
+    const areas = [...new Set(mine.map(o => o.road_area))].join(", ") || "—";
+    db.insertAdjacentHTML("beforeend", `<tr><td>${UI.esc(d.name || d.username)}</td><td>${UI.badge(d.status)}</td><td>${mine.length}</td><td>${UI.esc(areas)}</td></tr>`);
+  }
+  const ob = document.getElementById("ordersBody"); ob.innerHTML = "";
+  for (const o of ORDERS.slice().reverse())
+    ob.insertAdjacentHTML("beforeend", `<tr><td>#${o.id}</td><td>${UI.esc(o.customer_name)}</td><td>${UI.esc(o.road_area)}</td><td>${UI.badge(o.status)}</td><td>${UI.esc(o.driver_name) || "—"}</td></tr>`);
+}
+async function loadAll() {
+  const [o, d, s, r] = await Promise.all([UI.api("/api/manager/orders/"), UI.api("/api/manager/drivers/"), UI.api("/api/manager/summary/"), UI.api("/api/manager/restaurant/")]);
+  ORDERS = await o.json(); DRIVERS = await d.json();
+  SUMMARY = s.ok ? await s.json() : null; REST = r.ok ? await r.json() : null;
+  render();
+}
+const modal = () => bootstrap.Modal.getOrCreateInstance(document.getElementById("assignModal"));
+document.getElementById("refreshBtn").addEventListener("click", loadAll);
+document.getElementById("runAssignBtn").addEventListener("click", () => modal().show());
+document.getElementById("assignConfirm").addEventListener("click", async () => {
+  modal().hide();
+  const res = await UI.api("/api/manager/run-assignment/", { method: "POST" });
+  const data = await res.json();
+  const box = document.getElementById("assignInfo");
+  box.classList.remove("d-none");
+  box.textContent = data.assigned.length
+    ? "Last run: " + data.assigned.map(a => `${a.driver} ← orders ${a.order_ids.map(i => "#" + i).join(", ")}`).join(" | ")
+    : "Last run: nothing to assign right now.";
+  UI.toast(data.assigned.length ? `Assigned ${data.assigned.length} group(s).` : "Nothing to assign right now.", "info");
+  await loadAll();
+});
+document.getElementById("logoutBtn").addEventListener("click", () => DAS.logout());
+(async function init() {
+  const sess = await DAS.guard("manager");   // not logged in / wrong role -> redirected, page never shown
+  if (!sess) return;
+  const nm = sess.first_name || sess.username;
+  document.getElementById("whoLabel").textContent = `${nm} (${sess.username})`;
+  document.getElementById("mainApp").style.display = "block";
+  if (DAS.consumeDeniedFlag()) UI.toast("That page belongs to another role — you were sent back to your own dashboard.", "warning");
+  await loadAll();
+  UI.toast("Welcome, " + nm + "!", "success");
+})();
+</script>
+</body></html>

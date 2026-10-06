@@ -1,0 +1,23 @@
+/* Custom CSS on top of Bootstrap 5 — shared by all pages */
+:root{--navy:#1b2a4a;--navy-dark:#101a30;--amber:#e2a63b;--bg:#f4f6fb;--line:#e2e6ee;--ink-soft:#5b6473;}
+body{background:var(--bg);color:#1e2430;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;}
+.app-nav{background:linear-gradient(90deg,var(--navy),var(--navy-dark));box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.app-nav .navbar-brand{font-weight:700;}
+.page{padding-top:1.5rem;padding-bottom:2.5rem;}
+.card{border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 8px rgba(27,42,74,.06);}
+.card-header{background:#fff;font-weight:700;border-bottom:1px solid var(--line);border-radius:14px 14px 0 0!important;}
+.stat-card .stat-label{color:var(--ink-soft);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
+.stat-card .stat-value{font-size:2rem;font-weight:800;color:var(--navy);line-height:1.1;}
+.stat-card .stat-note{color:var(--ink-soft);font-size:.78rem;}
+.stat-card{border-left:4px solid var(--amber);}
+.table thead th{color:var(--ink-soft);font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+.table-scroll{max-height:380px;overflow:auto;}
+.btn-navy{background:var(--navy);color:#fff;border:0;}
+.btn-navy:hover{background:var(--navy-dark);color:#fff;}
+.btn-amber{background:var(--amber);color:#241800;border:0;font-weight:600;}
+.btn-amber:hover{background:#c78a20;color:#241800;}
+.toast-host{position:fixed;top:16px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:8px;}
+.empty{color:var(--ink-soft);font-style:italic;padding:14px 0;text-align:center;}
+.login-bg{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--navy),var(--navy-dark));padding:16px;}
+.login-card{max-width:420px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.35);}
+@media (max-width:576px){.stat-card .stat-value{font-size:1.6rem;}.page{padding-top:1rem;}}

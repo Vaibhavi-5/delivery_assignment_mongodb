@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<title>Customer Dashboard — Delivery Assignment System</title></head>
+<body>
+<div class="toast-host" id="toastHost"></div>
+<div id="navHost"></div>
+<div class="container page" id="mainApp" style="display:none;">
+  <div class="row row-cols-2 row-cols-lg-5 g-3 mb-3">
+    <div class="col-12 col-lg"><div class="card h-100"><div class="card-body">
+      <div class="text-secondary small fw-semibold text-uppercase">Customer</div>
+      <div class="fs-5 fw-bold" id="custName">–</div><div class="text-secondary small" id="custId"></div></div></div></div>
+    <div class="col"><div class="card stat-card h-100"><div class="card-body py-2"><div class="stat-label">Total orders</div><div class="stat-value" id="sTotal">–</div></div></div></div><div class="col"><div class="card stat-card h-100"><div class="card-body py-2"><div class="stat-label">Waiting</div><div class="stat-value" id="sPending">–</div></div></div></div><div class="col"><div class="card stat-card h-100"><div class="card-body py-2"><div class="stat-label">On the way</div><div class="stat-value" id="sAssigned">–</div></div></div></div><div class="col"><div class="card stat-card h-100"><div class="card-body py-2"><div class="stat-label">Delivered</div><div class="stat-value" id="sDone">–</div></div></div></div>
+  </div>
+  <div class="alert alert-warning d-none" id="queueAlert"></div>
+  <div class="row g-3">
+    <div class="col-lg-4"><div class="card h-100"><div class="card-header">Place a new order</div><div class="card-body">
+      <form id="orderForm">
+        <div class="mb-3"><label class="form-label fw-semibold" for="roadArea">Delivery road / area</label>
+          <input type="text" class="form-control" id="roadArea" placeholder="e.g. Koramangala, 80 Feet Road" required></div>
+        <div class="mb-3"><label class="form-label fw-semibold" for="itemsSummary">Items</label>
+          <input type="text" class="form-control" id="itemsSummary" placeholder="e.g. 1x Margherita Pizza, 1x Coke"></div>
+        <button type="submit" class="btn btn-navy w-100">Place order</button>
+      </form>
+      <p class="text-secondary small mt-3 mb-0">Orders from the same road/area are grouped and given to one driver. If all drivers are busy, your order waits in the queue.</p>
+    </div></div></div>
+    <div class="col-lg-8"><div class="card h-100"><div class="card-header">My orders &amp; history</div><div class="card-body">
+      <div class="table-responsive table-scroll"><table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Order #</th><th>Road / Area</th><th>Items</th><th>Status</th><th>Driver</th><th>Placed</th><th>Delivered</th></tr></thead>
+        <tbody id="ordersBody"></tbody></table></div>
+      <div class="empty" id="ordersEmpty" style="display:none;">You haven't placed any orders yet.</div>
+    </div></div></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="auth.js"></script>
+<script src="ui.js"></script>
+<script>
+document.getElementById("navHost").innerHTML = UI.navbar("🍽️ Customer Dashboard");
+async function loadOrders() {
+  const orders = await (await UI.api("/api/customer/orders/")).json();   // existing endpoint
+  const n = s => orders.filter(o => o.status === s).length;
+  document.getElementById("sTotal").textContent = orders.length;
+  document.getElementById("sPending").textContent = n("pending");
+  document.getElementById("sAssigned").textContent = n("assigned");
+  document.getElementById("sDone").textContent = n("delivered");
+  const qa = document.getElementById("queueAlert");
+  qa.classList.toggle("d-none", !n("pending"));
+  qa.textContent = `${n("pending")} order(s) are waiting for a free driver — they'll be assigned automatically.`;
+  const body = document.getElementById("ordersBody"); body.innerHTML = "";
+  document.getElementById("ordersEmpty").style.display = orders.length ? "none" : "block";
+  for (const o of orders.slice().reverse()) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>#${o.id}</td><td>${UI.esc(o.road_area)}</td><td>${UI.esc(o.items_summary) || "—"}</td><td>${UI.badge(o.status)}</td>
+      <td>${UI.esc(o.driver_name) || "—"}</td><td>${UI.fmt(o.created_at)}</td><td>${UI.fmt(o.delivered_at)}</td>`;
+    body.appendChild(tr);
+  }
+}
+document.getElementById("orderForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const road_area = document.getElementById("roadArea").value.trim();
+  const items_summary = document.getElementById("itemsSummary").value.trim();
+  if (!road_area) { UI.toast("Enter a delivery road/area.", "error"); return; }
+  const res = await UI.api("/api/customer/orders/", { method: "POST", body: JSON.stringify({ road_area, items_summary }) });
+  if (!res.ok) { UI.toast("Could not place the order.", "error"); return; }
+  document.getElementById("orderForm").reset();
+  UI.toast("Order placed!", "success");
+  await loadOrders();
+});
+document.getElementById("logoutBtn").addEventListener("click", () => DAS.logout());
+(async function init() {
+  const sess = await DAS.guard("customer");   // not logged in / wrong role -> redirected, page never shown
+  if (!sess) return;
+  const nm = sess.first_name || sess.username;
+  document.getElementById("whoLabel").textContent = `${nm} (${sess.username})`;
+  document.getElementById("custName").textContent = nm;
+  document.getElementById("custId").textContent = `ID: ${sess.username}`;
+  document.getElementById("mainApp").style.display = "block";
+  if (DAS.consumeDeniedFlag()) UI.toast("That page belongs to another role — you were sent back to your own dashboard.", "warning");
+  await loadOrders();
+  UI.toast("Welcome, " + nm + "!", "success");
+})();
+</script>
+</body></html>
